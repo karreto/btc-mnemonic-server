@@ -157,8 +157,22 @@ function stopSearch() {
   console.log('Busqueda detenida');
 }
 
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+const PASSWORD = 'btcbtcbtc';
+function requireAuth(req, res, next) {
+  const auth = req.headers['authorization'];
+  if (auth) {
+    const b64 = auth.split(' ')[1] || '';
+    const decoded = Buffer.from(b64, 'base64').toString('utf8');
+    if (decoded === 'admin:' + PASSWORD) return next();
+  }
+  res.setHeader('WWW-Authenticate', 'Basic realm="BTC Explorer"');
+  res.status(401).send('Acceso denegado');
+}
+
 // ─── Express routes ───────────────────────────────────────────────────────────
 app.use((req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next(); });
+app.use(requireAuth);
 app.get('/api/status',  (req, res) => res.json({ running, stats, lastMnemonic, lastAddress, findings: findings.slice(0, 100), cooldownUntil, uptime: process.uptime() }));
 app.get('/api/start',   (req, res) => { startSearch(); res.json({ ok: true, running }); });
 app.get('/api/stop',    (req, res) => { stopSearch();  res.json({ ok: true, running }); });
