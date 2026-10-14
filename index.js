@@ -172,13 +172,14 @@ function requireAuth(req, res, next) {
 
 // ─── Express routes ───────────────────────────────────────────────────────────
 app.use((req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next(); });
-app.use(requireAuth);
+// /api/status es público para que UptimeRobot haga ping sin password
 app.get('/api/status',  (req, res) => res.json({ running, stats, lastMnemonic, lastAddress, findings: findings.slice(0, 100), cooldownUntil, uptime: process.uptime() }));
-app.get('/api/start',   (req, res) => { startSearch(); res.json({ ok: true, running }); });
-app.get('/api/stop',    (req, res) => { stopSearch();  res.json({ ok: true, running }); });
-app.get('/api/clear',   (req, res) => { findings = []; fs.writeFileSync(FOUND_FILE, '[]'); res.json({ ok: true }); });
-app.get('/',            (req, res) => res.sendFile(DASHBOARD));
-app.get('/dashboard',   (req, res) => res.sendFile(DASHBOARD));
+// El resto requiere password
+app.get('/api/start',   requireAuth, (req, res) => { startSearch(); res.json({ ok: true, running }); });
+app.get('/api/stop',    requireAuth, (req, res) => { stopSearch();  res.json({ ok: true, running }); });
+app.get('/api/clear',   requireAuth, (req, res) => { findings = []; fs.writeFileSync(FOUND_FILE, '[]'); res.json({ ok: true }); });
+app.get('/',            requireAuth, (req, res) => res.sendFile(DASHBOARD));
+app.get('/dashboard',   requireAuth, (req, res) => res.sendFile(DASHBOARD));
 
 // ─── Arrancar servidor ────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
