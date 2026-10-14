@@ -94,9 +94,12 @@ async function checkBatch(addresses) {
   const batch  = addresses.slice(0, 20).join('|');
   const reqId  = Date.now() + '-' + Math.random().toString(36).substr(2, 6);
   const url    = 'https://blockchain.info/balance?active=' + batch + '&cors=true&_r=' + reqId;
+  console.log('[API] Consultando ' + addresses.length + ' direcciones... (' + reqId + ')');
   const data   = await httpsGet(url);
+  console.log('[API] Respuesta OK — ' + Object.keys(data).length + ' direcciones recibidas');
   for (const [addr, info] of Object.entries(data)) {
     if (info && (info.n_tx > 0 || info.final_balance > 0)) {
+      console.log('[API] HIT! ' + addr + ' | balance: ' + info.final_balance + ' | txs: ' + info.n_tx);
       return { found: true, address: addr, balance: info.final_balance || 0, received: info.total_received || 0, tx_count: info.n_tx || 0 };
     }
   }
@@ -131,7 +134,9 @@ async function handleWorkerResult(mnemonic, addresses) {
   } catch(err) {
     if (err.message.includes('429') || err.message.includes('503')) {
       cooldownUntil = Date.now() + 3 * 60 * 1000;
-      console.log('Rate limit cooldown 3min');
+      console.log('[API] Rate limit 429 — cooldown 3 min');
+    } else {
+      console.log('[API] Error: ' + err.message);
     }
   }
 }
