@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BTC Mnemonic Explorer — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:'Courier New',monospace;padding:20px}
+h1{color:#f7931a;font-size:1.4rem;margin-bottom:20px;border-bottom:1px solid #21262d;padding-bottom:10px}
+h2{color:#58a6ff;font-size:1rem;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px}
+.card .val{font-size:1.5rem;font-weight:bold;color:#3fb950;margin-top:4px}
+.card .lbl{font-size:0.75rem;color:#8b949e}
+.running .val{color:#3fb950}
+.stopped .val{color:#f85149}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-family:monospace;margin-right:8px}
+.btn-start{background:#1f6feb;color:#fff}
+.btn-stop{background:#da3633;color:#fff}
+.btn-clear{background:#21262d;color:#8b949e}
+.btn:hover{opacity:0.85}
+.controls{margin-bottom:20px}
+.mnemonic-box{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px;margin-bottom:20px;word-break:break-all;font-size:0.85rem;color:#e6edf3}
+.mnemonic-box .addr{color:#8b949e;font-size:0.75rem;margin-top:6px}
+.findings{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px}
+.hit{background:#0d2d0d;border:1px solid #238636;border-radius:8px;padding:14px;margin-bottom:12px}
+.hit .phrase{color:#3fb950;font-size:0.95rem;font-weight:bold;word-break:break-all;margin-bottom:8px}
+.hit .detail{color:#8b949e;font-size:0.8rem;margin-top:4px}
+.hit .balance{color:#f7931a;font-size:1.1rem;font-weight:bold}
+.empty{color:#8b949e;font-size:0.85rem;padding:10px 0}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.dot-green{background:#3fb950}
+.dot-red{background:#f85149}
+.cooldown{color:#f0883e;font-size:0.8rem;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>&#8383; BTC Mnemonic Explorer &mdash; Dashboard 24/7</h1>
+<div class="controls">
+  <button class="btn btn-start" onclick="apiCall('/api/start')">&#9654; Iniciar</button>
+  <button class="btn btn-stop" onclick="apiCall('/api/stop')">&#9646;&#9646; Detener</button>
+  <button class="btn btn-clear" onclick="if(confirm('Borrar todos los hallazgos?'))apiCall('/api/clear')">&#128465; Limpiar hallazgos</button>
+</div>
+<div class="grid" id="statsGrid">
+  <div class="card"><div class="lbl">Estado</div><div class="val" id="stRunning">-</div></div>
+  <div class="card"><div class="lbl">Generadas</div><div class="val" id="stGen">0</div></div>
+  <div class="card"><div class="lbl">Verificadas</div><div class="val" id="stChk">0</div></div>
+  <div class="card"><div class="lbl">Con TX / Hit</div><div class="val" id="stTx">0</div></div>
+  <div class="card"><div class="lbl">Uptime</div><div class="val" id="stUp">-</div></div>
+</div>
+<h2>Ultima frase procesada</h2>
+<div class="mnemonic-box">
+  <div id="lastMn">Esperando...</div>
+  <div class="addr" id="lastAddr"></div>
+  <div class="cooldown" id="cooldownMsg"></div>
+</div>
+<h2>&#127919; Hallazgos (<span id="findCount">0</span>)</h2>
+<div class="findings" id="findingsDiv"><div class="empty">Ningun hallazgo aun.</div></div>
+<script>
+function apiCall(url){fetch(url).then(()=>refresh());}
+function fmtUptime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.floor(s%60);return h+'h '+m+'m '+sec+'s';}
+function refresh(){
+  fetch('/api/status').then(r=>r.json()).then(d=>{
+    const run=d.running;
+    document.getElementById('stRunning').textContent=run?'ACTIVO':'DETENIDO';
+    document.getElementById('stRunning').parentElement.className='card '+(run?'running':'stopped');
+    document.getElementById('stGen').textContent=(d.stats.generated||0).toLocaleString();
+    document.getElementById('stChk').textContent=(d.stats.checked||0).toLocaleString();
+    document.getElementById('stTx').textContent=d.stats.withTx||0;
+    document.getElementById('stUp').textContent=fmtUptime(d.uptime||0);
+    document.getElementById('lastMn').textContent=d.lastMnemonic||'Esperando...';
+    document.getElementById('lastAddr').textContent=d.lastAddress?('Direccion: '+d.lastAddress):'';
+    const cd=d.cooldownUntil||0;
+    const cdEl=document.getElementById('cooldownMsg');
+    if(cd>Date.now()){const sec=Math.ceil((cd-Date.now())/1000);cdEl.textContent='Rate limit activo, reintentando en '+sec+'s';}
+    else cdEl.textContent='';
+    const finds=d.findings||[];
+    document.getElementById('findCount').textContent=finds.length;
+    const div=document.getElementById('findingsDiv');
+    if(finds.length===0){div.innerHTML='<div class="empty">Ningun hallazgo aun. El servidor sigue buscando...</div>';return;}
+    div.innerHTML=finds.map(f=>'<div class="hit"><div class="phrase">Frase semilla: '+escHtml(f.mnemonic)+'</div><div class="balance">'+escHtml(f.balance)+'</div><div class="detail">Direccion: '+escHtml(f.address)+'</div><div class="detail">Tipo: '+escHtml(f.type)+' | Path: '+escHtml(f.path)+'</div><div class="detail">Recibido total: '+escHtml(f.received)+' | TXs: '+f.tx_count+'</div><div class="detail">Encontrado: '+escHtml(f.foundAt)+'</div></div>').join('');
+  }).catch(()=>{});
+}
+function escHtml(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+refresh();
+setInterval(refresh,3000);
+</script>
+</body>
+</html>
