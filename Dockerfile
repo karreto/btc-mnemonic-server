@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json .
 COPY index.js .
 COPY public ./public
-RUN mkdir -p /app && echo "[]" > /app/found.json
+RUN echo "[]" > /app/found.json
+ENV PORT=3000
 EXPOSE 3000
 CMD ["node", "index.js"]
