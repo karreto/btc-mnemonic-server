@@ -126,6 +126,7 @@ async function handleWorkerResult(mnemonic, addresses) {
       fs.writeFileSync(FOUND_FILE, JSON.stringify(findings, null, 2));
       stats.withTx++;
       console.log('HIT! ' + hit.address + ' | ' + hit.balance);
+      stopSearch(); // Frenar al encontrar
     }
   } catch(err) {
     if (err.message.includes('429') || err.message.includes('503')) {
