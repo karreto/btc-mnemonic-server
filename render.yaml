@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: btc-mnemonic-server
+    runtime: node
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 10000
