@@ -42,6 +42,12 @@ function startSearch(){if(running)return;running=true;stats.startedAt=new Date()
 function stopSearch(){running=false;workerTimers.forEach(t=>clearTimeout(t));workerTimers.length=0;console.log('Busqueda detenida');}
 const DASHBOARD_FILE=path.join(__dirname,'public','dashboard.html');
 const server=http.createServer((req,res)=>{res.setHeader('Access-Control-Allow-Origin','*');if(req.url==='/api/status'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({running,stats,lastMnemonic,lastAddress,findings:findings.slice(0,100),cooldownUntil,uptime:process.uptime()}));return;}if(req.url==='/api/start'){startSearch();res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,running}));return;}if(req.url==='/api/stop'){stopSearch();res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true,running}));return;}if(req.url==='/api/clear'){findings=[];fs.writeFileSync(FOUND_FILE,'[]');res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({ok:true}));return;}if(req.url==='/'||req.url==='/dashboard'){try{const html=fs.readFileSync(DASHBOARD_FILE,'utf8');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(html);}catch(e){res.writeHead(500);res.end('Dashboard not found');}return;}res.writeHead(404);res.end('Not found');});
-server.listen(PORT,'0.0.0.0',()=>{console.log('Server en puerto '+PORT);https.get(WORDS_URL,{headers:{'User-Agent':'Node.js'}},r=>{let txt='';r.on('data',c=>txt+=c);r.on('end',()=>{WORDLIST=txt.trim().split('\n').map(w=>w.trim());console.log('Wordlist: '+WORDLIST.length+' palabras');startSearch();});}).on('error',err=>console.error('Error wordlist:',err.message));});
-process.on('uncaughtException',err=>console.error('Uncaught:',err.message));
-process.on('unhandledRejection',err=>console.error('Unhandled:',err&&err.message));
+// Arrancar HTTP server inmediatamente para que Render detecte el puerto
+server.listen(PORT,'0.0.0.0',function(){
+  console.log('HTTP server listening on port '+PORT);
+});
+setTimeout(function(){
+  https.get(WORDS_URL,{headers:{'User-Agent':'Node.js'}},function(r){var txt='';r.on('data',function(c){txt+=c;});r.on('end',function(){WORDLIST=txt.trim().split('\n').map(function(w){return w.trim();});console.log('Wordlist: '+WORDLIST.length+' palabras');startSearch();});}).on('error',function(err){console.error('Error wordlist:',err.message);});
+},100);
+process.on('uncaughtException',function(err){console.error('Uncaught:',err.message);});
+process.on('unhandledRejection',function(err){console.error('Unhandled:',err&&err.message);});
